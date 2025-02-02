@@ -1,6 +1,8 @@
 import os
 import pygame
 
+from play import play_screen
+
 pygame.init()
 size = 700, 500
 screen = pygame.display.set_mode(size)
@@ -28,11 +30,12 @@ def load_image(name, color_key=None):
 
 
 class Button(pygame.sprite.Sprite):
-    def __init__(self, image_path, position):
+    def __init__(self, image_path, position, type):
         super().__init__(all_sprites)
         self.original_image = load_image(image_path, color_key=-1)
         self.image = pygame.transform.scale(self.original_image, (70, 70))
         self.rect = self.image.get_rect(topleft=position)
+        self.type = type
 
     def update(self):
         pass
@@ -74,6 +77,9 @@ class Indicator:
     def update(self, value):
         self.current_value = max(0, min(self.max_value, value))
 
+    def regeneration(self):
+        self.current_value = self.max_value
+
     def draw(self, surface):
         pygame.draw.rect(surface, (200, 200, 200), (*self.position, 200, 20))
         fill_width = (self.current_value / self.max_value) * 200
@@ -84,15 +90,18 @@ class Indicator:
 
 
 def main():
-    hunger_indicator = Indicator("Голод", (50, 50), 100)
-    health_indicator = Indicator("Здоровье", (50, 100), 100)
-    sleep_indicator = Indicator("Сон", (50, 150), 100)
-    fun_indicator = Indicator("Веселье", (50, 200), 100)
+    hunger_indicator = Indicator("Голод", (450, 50), 100)
+    health_indicator = Indicator("Здоровье", (450, 100), 100)
+    sleep_indicator = Indicator("Сон", (450, 150), 100)
+    fun_indicator = Indicator("Веселье", (450, 200), 100)
 
     barsik = BarsikSprite(load_image("Barsik.jpg"), 4, 8, 160, 160)
-    food = Button('food.png', (0, 0))
-    aidkit = Button('Aidkit.png', (100, 0))
+    food = Button('food.png', (0, 0), 'food')
+    aidkit = Button('Aidkit.png', (100, 0), 'aidkit')
+    play = Button('play.png', (350, 0), 'play')
     button_sprites.add(food)
+    button_sprites.add(aidkit)
+    button_sprites.add(play)
 
     clock = pygame.time.Clock()
 
@@ -106,12 +115,20 @@ def main():
                     mouse_pos = event.pos
                     clicked_buttons = [button for button in button_sprites if button.rect.collidepoint(mouse_pos)]
                     if clicked_buttons:
-                        print("Button clicked!")
+                        if clicked_buttons[0].type == 'food':
+                            hunger_indicator.regeneration()
+                        elif clicked_buttons[0].type == 'aidkit':
+                            health_indicator.regeneration()
+                        elif clicked_buttons[0].type == 'play':
+                            print(325235)
+                            play_screen(screen)
 
-        hunger_indicator.update(hunger_indicator.current_value - 0.1)
-        health_indicator.update(health_indicator.current_value)
-        sleep_indicator.update(sleep_indicator.current_value - 0.05)
-        fun_indicator.update(fun_indicator.current_value + 0.1)
+
+        hunger_indicator.update(hunger_indicator.current_value - 3)
+        health_indicator.update(health_indicator.current_value - 1)
+        sleep_indicator.update(sleep_indicator.current_value - 1)
+        fun_indicator.update(fun_indicator.current_value - 2)
+
 
         all_sprites.update()
         screen.fill(pygame.Color("white"))
