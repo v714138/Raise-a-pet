@@ -1,111 +1,71 @@
-import os
+from datetime import datetime
+
 import pygame
 
-from play import play_screen
+from gameover import gameover
+from loading import loading
+from level import play_screen
+from sprites.barsik import BarsikSprite
+from sprites.button import Button
+from sprites.coin import Coin
+from sprites.indicator import Indicator
+from utils import load_image
 
+# Параметры экрана
 pygame.init()
-size = 700, 500
+size = 800, 640
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption('Raise a Pet!')
+background_image = load_image("fon_.jpg")
+background_image.set_alpha(128)
 
+# Группы спрайтов
 all_sprites = pygame.sprite.Group()
 button_sprites = pygame.sprite.Group()
 
+# Отображение количества монет
+def draw_coins(coins, screen):
+    font = pygame.font.Font(None, 36)
+    text_surface = font.render(f"Монетки: {coins}", True, (0, 0, 0))
+    screen.blit(text_surface, (620, 30))
 
-def load_image(name, color_key=None):
-    fullname = os.path.join('data', name)
-    try:
-        image = pygame.image.load(fullname).convert()
-    except pygame.error as message:
-        print('Cannot load image:', name)
-        raise SystemExit(message)
-
-    if color_key is not None:
-        if color_key == -1:
-            color_key = image.get_at((0, 0))
-        image.set_colorkey(color_key)
-    else:
-        image = image.convert_alpha()
-    return image
-
-
-class Button(pygame.sprite.Sprite):
-    def __init__(self, image_path, position, type):
-        super().__init__(all_sprites)
-        self.original_image = load_image(image_path, color_key=-1)
-        self.image = pygame.transform.scale(self.original_image, (70, 70))
-        self.rect = self.image.get_rect(topleft=position)
-        self.type = type
-
-    def update(self):
-        pass
-
-    def draw(self, surface):
-        surface.blit(self.image, self.rect)
-
-
-class BarsikSprite(pygame.sprite.Sprite):
-    def __init__(self, sheet, columns, rows, x, y):
-        super().__init__(all_sprites)
-        self.frames = []
-        self.cut_sheet(sheet, columns, rows)
-        self.cur_frame = 0
-        self.image = self.frames[self.cur_frame]
-        self.rect = self.rect.move(x, y)
-
-    def cut_sheet(self, sheet, columns, rows):
-        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
-                                sheet.get_height() // rows)
-        for j in range(rows):
-            for i in range(columns):
-                frame_location = (self.rect.w * i, self.rect.h * j)
-                self.frames.append(sheet.subsurface(pygame.Rect(
-                    frame_location, self.rect.size)))
-
-    def update(self):
-        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = self.frames[self.cur_frame]
-
-
-class Indicator:
-    def __init__(self, name, position, max_value):
-        self.name = name
-        self.position = position
-        self.max_value = max_value
-        self.current_value = max_value
-
-    def update(self, value):
-        self.current_value = max(0, min(self.max_value, value))
-
-    def regeneration(self):
-        self.current_value = self.max_value
-
-    def draw(self, surface):
-        pygame.draw.rect(surface, (200, 200, 200), (*self.position, 200, 20))
-        fill_width = (self.current_value / self.max_value) * 200
-        pygame.draw.rect(surface, (0, 255, 0), (*self.position, fill_width, 20))
-        font = pygame.font.Font(None, 24)
-        text = font.render(f"{self.name}: {self.current_value}/{self.max_value}", True, (0, 0, 0))
-        surface.blit(text, (self.position[0] + 5, self.position[1] - 25))
-
-
+# Главная функция игры
 def main():
-    hunger_indicator = Indicator("Голод", (450, 50), 100)
-    health_indicator = Indicator("Здоровье", (450, 100), 100)
-    sleep_indicator = Indicator("Сон", (450, 150), 100)
-    fun_indicator = Indicator("Веселье", (450, 200), 100)
+    #Индикаторы
+    hunger_indicator = Indicator("Голод", (590, 100), 100)
+    health_indicator = Indicator("Здоровье", (590, 150), 100)
+    fun_indicator = Indicator("Веселье", (590, 200), 100)
 
-    barsik = BarsikSprite(load_image("Barsik.jpg"), 4, 8, 160, 160)
-    food = Button('food.png', (0, 0), 'food')
+    total_coins = 10
+    start_time = datetime.now()
+    barsik = BarsikSprite(
+        sheet=load_image("Barsik.png"),
+        columns=4, rows=8,
+        frame_indices=[0, 0, 1, 1, 2, 2, 3, 3, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23],
+        scale_factor=1.5,
+        x=250,
+        y=250
+    )
+    # Кнопки
+    food = Button('food_old.png', (0, 0), 'food')
     aidkit = Button('Aidkit.png', (100, 0), 'aidkit')
-    play = Button('play.png', (350, 0), 'play')
+    play = Button('play.png', (200, 0), 'play')
+    coin = Coin('Coin.png', (590, 30), 'coin')
     button_sprites.add(food)
     button_sprites.add(aidkit)
     button_sprites.add(play)
+    all_sprites.add(barsik)
+    all_sprites.add(aidkit)
+    all_sprites.add(food)
+    all_sprites.add(play)
+    all_sprites.add(coin)
 
     clock = pygame.time.Clock()
 
+    # Заставка
+    loading(screen, *size)
     running = True
+    # Основной цикл игры
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -116,27 +76,35 @@ def main():
                     clicked_buttons = [button for button in button_sprites if button.rect.collidepoint(mouse_pos)]
                     if clicked_buttons:
                         if clicked_buttons[0].type == 'food':
-                            hunger_indicator.regeneration()
+                            if total_coins > 0:
+                                total_coins -= 1
+                                hunger_indicator.regeneration()
                         elif clicked_buttons[0].type == 'aidkit':
-                            health_indicator.regeneration()
+                            if total_coins > 0:
+                                total_coins -= 1
+                                health_indicator.regeneration()
                         elif clicked_buttons[0].type == 'play':
-                            print(325235)
-                            play_screen(screen)
+                            coins = play_screen()
+                            total_coins += coins
+                            fun_indicator.regeneration()
 
-
-        hunger_indicator.update(hunger_indicator.current_value - 3)
+        # Обновление индикаторов
+        hunger_indicator.update(hunger_indicator.current_value - 2)
         health_indicator.update(health_indicator.current_value - 1)
-        sleep_indicator.update(sleep_indicator.current_value - 1)
-        fun_indicator.update(fun_indicator.current_value - 2)
-
+        fun_indicator.update(fun_indicator.current_value - 3)
+        if all(indicator.get_current_value() <= 0 for indicator in [hunger_indicator, health_indicator, fun_indicator]):
+            duration = datetime.now() - start_time
+            gameover(screen, *size, duration)
 
         all_sprites.update()
-        screen.fill(pygame.Color("white"))
+        # Отрисовка спрайтов
+        screen.fill(pygame.Color("grey"))
+        screen.blit(background_image, (0, 0))
         hunger_indicator.draw(screen)
         health_indicator.draw(screen)
-        sleep_indicator.draw(screen)
         fun_indicator.draw(screen)
         all_sprites.draw(screen)
+        draw_coins(total_coins, screen)
         pygame.display.flip()
         clock.tick(2)
 
